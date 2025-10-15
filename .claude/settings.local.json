@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 15 npx playwright test --headed --reporter=list)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

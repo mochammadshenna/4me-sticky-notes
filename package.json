@@ -1,0 +1,40 @@
+{
+  "name": "sticky-notes-mindmap",
+  "version": "1.0.0",
+  "description": "A dual-mode productivity application combining sticky notes with Drawnix-style mind mapping",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "build": "echo 'Building project...' && npm run typecheck",
+    "typecheck": "echo 'No TypeScript in this project - using vanilla JavaScript with ES modules'",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "test:drawnix": "playwright test drawnix-style.spec.js --reporter=list",
+    "test:isolation": "playwright test mode-isolation.spec.js --reporter=list",
+    "test:verify": "playwright test verify-changes.spec.js --reporter=list",
+    "serve": "python3 -m http.server 8000",
+    "dev": "npm run serve",
+    "lint": "echo 'Add ESLint configuration to enable linting'",
+    "format": "echo 'Add Prettier configuration to enable formatting'"
+  },
+  "keywords": [
+    "sticky-notes",
+    "mind-map",
+    "mindmap",
+    "productivity",
+    "drawnix",
+    "vanilla-javascript",
+    "es-modules",
+    "drag-and-drop"
+  ],
+  "author": "Development Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

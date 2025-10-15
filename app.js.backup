@@ -1,0 +1,761 @@
+// ==================== STATE MANAGEMENT ====================
+const state = {
+    notes: [],
+    mindMapNodes: [],
+    connections: [],
+    selectedColor: '#FFF4A3',
+    drawingMode: false,
+    isDrawing: false,
+    penColor: '#000000',
+    penSize: 3,
+    draggedItem: null,
+    connectingFrom: null,
+    highestZIndex: 10
+};
+
+// ==================== DOM ELEMENTS ====================
+const board = document.getElementById('board');
+const canvas = document.getElementById('drawingCanvas');
+const ctx = canvas.getContext('2d');
+const connectionSvg = document.getElementById('connectionSvg');
+const addNoteBtn = document.getElementById('addNoteBtn');
+const addMindMapBtn = document.getElementById('addMindMapBtn');
+const toggleDrawBtn = document.getElementById('toggleDrawBtn');
+const clearDrawBtn = document.getElementById('clearDrawBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
+const colorBtns = document.querySelectorAll('.color-btn');
+const penColorInput = document.getElementById('penColor');
+const penSizeInput = document.getElementById('penSize');
+const noteTemplate = document.getElementById('noteTemplate');
+const mindMapTemplate = document.getElementById('mindMapTemplate');
+const modalOverlay = document.getElementById('modalOverlay');
+
+// ==================== INITIALIZATION ====================
+function init() {
+    setupCanvas();
+    setupConnectionSvg();
+    loadFromStorage();
+    setupEventListeners();
+
+    // Create initial notes if none exist
+    if (state.notes.length === 0 && state.mindMapNodes.length === 0) {
+        createInitialContent();
+    }
+
+    redrawConnections();
+}
+
+function setupCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 70;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+}
+
+function setupConnectionSvg() {
+    connectionSvg.setAttribute('width', window.innerWidth);
+    connectionSvg.setAttribute('height', window.innerHeight - 70);
+
+    // Add arrowhead marker
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', 'arrowhead');
+    marker.setAttribute('markerWidth', '10');
+    marker.setAttribute('markerHeight', '10');
+    marker.setAttribute('refX', '9');
+    marker.setAttribute('refY', '3');
+    marker.setAttribute('orient', 'auto');
+    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    polygon.setAttribute('points', '0 0, 10 3, 0 6');
+    polygon.setAttribute('fill', '#7C3AED');
+    marker.appendChild(polygon);
+    defs.appendChild(marker);
+    connectionSvg.appendChild(defs);
+}
+
+function createInitialContent() {
+    // Create sample sticky notes
+    createNote(100, 100, 'Welcome! 🎉\n\nThis is an enhanced sticky notes app with mind mapping features.', '#FFF4A3');
+    createNote(420, 100, 'Try formatting:\n• Bold\n• Italic\n• Underline\n• Strikethrough', '#FFB3D9');
+
+    // Create sample mind map
+    const node1 = createMindMapNode(800, 200, 'Main Idea');
+    const node2 = createMindMapNode(950, 100, 'Concept 1');
+    const node3 = createMindMapNode(950, 300, 'Concept 2');
+
+    // Connect nodes
+    createConnection(node1.id, node2.id);
+    createConnection(node1.id, node3.id);
+}
+
+// ==================== MODAL SYSTEM ====================
+function showModal(title, message, onConfirm, confirmText = 'Confirm', showCancel = true) {
+    const modalTitle = modalOverlay.querySelector('.modal-title');
+    const modalBody = modalOverlay.querySelector('.modal-body');
+    const confirmBtn = modalOverlay.querySelector('.modal-confirm');
+    const cancelBtn = modalOverlay.querySelector('.modal-cancel');
+
+    modalTitle.textContent = title;
+    modalBody.innerHTML = message;
+    confirmBtn.textContent = confirmText;
+
+    if (!showCancel) {
+        cancelBtn.style.display = 'none';
+    } else {
+        cancelBtn.style.display = 'flex';
+    }
+
+    modalOverlay.classList.add('active');
+
+    // Remove old listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.addEventListener('click', () => {
+        if (onConfirm) onConfirm();
+        hideModal();
+    });
+}
+
+function hideModal() {
+    modalOverlay.classList.remove('active');
+}
+
+// ==================== STICKY NOTES ====================
+function createNote(x, y, text = '', color = null) {
+    const noteColor = color || state.selectedColor;
+    const noteId = 'note-' + Date.now() + Math.random();
+
+    const noteElement = noteTemplate.content.cloneNode(true).querySelector('.sticky-note');
+    noteElement.dataset.id = noteId;
+    noteElement.dataset.type = 'note';
+    noteElement.style.left = x + 'px';
+    noteElement.style.top = y + 'px';
+    noteElement.style.background = noteColor;
+    noteElement.style.zIndex = ++state.highestZIndex;
+
+    const content = noteElement.querySelector('.note-content');
+    content.innerHTML = text.replace(/\n/g, '<br>');
+
+    const timestamp = noteElement.querySelector('.note-timestamp');
+    timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setupNoteEventListeners(noteElement);
+    board.appendChild(noteElement);
+
+    state.notes.push({
+        id: noteId,
+        x, y,
+        text,
+        color: noteColor,
+        pinned: false,
+        timestamp: Date.now(),
+        zIndex: state.highestZIndex
+    });
+
+    saveToStorage();
+    return { id: noteId, element: noteElement };
+}
+
+function setupNoteEventListeners(noteElement) {
+    const content = noteElement.querySelector('.note-content');
+    const deleteBtn = noteElement.querySelector('.note-delete');
+    const pinBtn = noteElement.querySelector('.note-pin');
+    const formatBtns = noteElement.querySelectorAll('.note-format-btn');
+
+    // Drag
+    noteElement.addEventListener('mousedown', (e) => {
+        if (!state.drawingMode &&
+            !e.target.closest('.note-content') &&
+            !e.target.closest('.note-btn') &&
+            !e.target.closest('.note-format-btn')) {
+            startDrag(e, noteElement, 'note');
+        }
+    });
+
+    // Edit
+    content.addEventListener('input', () => {
+        updateNoteText(noteElement.dataset.id, content.innerHTML);
+    });
+
+    // Delete
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showModal(
+            'Delete Note',
+            'Are you sure you want to delete this note?',
+            () => deleteNote(noteElement.dataset.id),
+            'Delete'
+        );
+    });
+
+    // Pin
+    pinBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePin(noteElement.dataset.id);
+    });
+
+    // Format buttons
+    formatBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const format = btn.dataset.format;
+            applyFormat(format);
+            btn.classList.toggle('active');
+        });
+    });
+
+    // Bring to front
+    noteElement.addEventListener('mousedown', () => {
+        if (!state.drawingMode) {
+            bringToFront(noteElement);
+        }
+    });
+}
+
+function applyFormat(format) {
+    document.execCommand(format, false, null);
+}
+
+function updateNoteText(noteId, html) {
+    const noteData = state.notes.find(n => n.id == noteId);
+    if (noteData) {
+        noteData.text = html;
+        saveToStorage();
+    }
+}
+
+function deleteNote(noteId) {
+    const noteElement = document.querySelector(`[data-id="${noteId}"]`);
+    if (noteElement) {
+        noteElement.style.animation = 'fadeOut 0.2s ease-out forwards';
+        setTimeout(() => {
+            noteElement.remove();
+            state.notes = state.notes.filter(n => n.id != noteId);
+            saveToStorage();
+        }, 200);
+    }
+}
+
+function togglePin(noteId) {
+    const noteData = state.notes.find(n => n.id == noteId);
+    const noteElement = document.querySelector(`[data-id="${noteId}"]`);
+
+    if (noteData && noteElement) {
+        noteData.pinned = !noteData.pinned;
+        noteElement.classList.toggle('pinned');
+        saveToStorage();
+    }
+}
+
+// ==================== MIND MAP ====================
+function createMindMapNode(x, y, text = '') {
+    const nodeId = 'mindmap-' + Date.now() + Math.random();
+
+    const nodeElement = mindMapTemplate.content.cloneNode(true).querySelector('.mindmap-node');
+    nodeElement.dataset.id = nodeId;
+    nodeElement.dataset.type = 'mindmap';
+    nodeElement.style.left = x + 'px';
+    nodeElement.style.top = y + 'px';
+    nodeElement.style.zIndex = ++state.highestZIndex;
+
+    const content = nodeElement.querySelector('.mindmap-content');
+    content.textContent = text;
+
+    setupMindMapEventListeners(nodeElement);
+    board.appendChild(nodeElement);
+
+    state.mindMapNodes.push({
+        id: nodeId,
+        x, y,
+        text,
+        zIndex: state.highestZIndex
+    });
+
+    saveToStorage();
+    return { id: nodeId, element: nodeElement };
+}
+
+function setupMindMapEventListeners(nodeElement) {
+    const content = nodeElement.querySelector('.mindmap-content');
+    const deleteBtn = nodeElement.querySelector('.mindmap-delete-btn');
+    const connectBtn = nodeElement.querySelector('.mindmap-connect-btn');
+
+    // Drag
+    nodeElement.addEventListener('mousedown', (e) => {
+        if (!state.drawingMode &&
+            !e.target.closest('.mindmap-content') &&
+            !e.target.closest('button')) {
+            startDrag(e, nodeElement, 'mindmap');
+        }
+    });
+
+    // Edit
+    content.addEventListener('input', () => {
+        updateMindMapText(nodeElement.dataset.id, content.textContent);
+    });
+
+    // Delete
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showModal(
+            'Delete Node',
+            'Are you sure you want to delete this node and its connections?',
+            () => deleteMindMapNode(nodeElement.dataset.id),
+            'Delete'
+        );
+    });
+
+    // Connect
+    connectBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (state.connectingFrom === null) {
+            state.connectingFrom = nodeElement.dataset.id;
+            connectBtn.classList.add('connecting');
+        } else if (state.connectingFrom === nodeElement.dataset.id) {
+            state.connectingFrom = null;
+            connectBtn.classList.remove('connecting');
+        } else {
+            createConnection(state.connectingFrom, nodeElement.dataset.id);
+            document.querySelectorAll('.mindmap-connect-btn').forEach(b => b.classList.remove('connecting'));
+            state.connectingFrom = null;
+        }
+    });
+
+    // Bring to front
+    nodeElement.addEventListener('mousedown', () => {
+        if (!state.drawingMode) {
+            bringToFront(nodeElement);
+        }
+    });
+}
+
+function updateMindMapText(nodeId, text) {
+    const nodeData = state.mindMapNodes.find(n => n.id == nodeId);
+    if (nodeData) {
+        nodeData.text = text;
+        saveToStorage();
+    }
+}
+
+function deleteMindMapNode(nodeId) {
+    const nodeElement = document.querySelector(`[data-id="${nodeId}"]`);
+    if (nodeElement) {
+        nodeElement.style.animation = 'fadeOut 0.2s ease-out forwards';
+        setTimeout(() => {
+            nodeElement.remove();
+            state.mindMapNodes = state.mindMapNodes.filter(n => n.id != nodeId);
+            // Remove connections
+            state.connections = state.connections.filter(c => c.from !== nodeId && c.to !== nodeId);
+            redrawConnections();
+            saveToStorage();
+        }, 200);
+    }
+}
+
+function createConnection(fromId, toId) {
+    const existing = state.connections.find(c => c.from === fromId && c.to === toId);
+    if (existing) return;
+
+    state.connections.push({ from: fromId, to: toId });
+    redrawConnections();
+    saveToStorage();
+}
+
+function redrawConnections() {
+    // Clear existing connections
+    const paths = connectionSvg.querySelectorAll('.mindmap-connection');
+    paths.forEach(p => p.remove());
+
+    // Draw each connection
+    state.connections.forEach(conn => {
+        const fromElement = document.querySelector(`[data-id="${conn.from}"]`);
+        const toElement = document.querySelector(`[data-id="${conn.to}"]`);
+
+        if (fromElement && toElement) {
+            const fromRect = fromElement.getBoundingClientRect();
+            const toRect = toElement.getBoundingClientRect();
+            const boardRect = board.getBoundingClientRect();
+
+            const x1 = fromRect.left + fromRect.width / 2 - boardRect.left + board.scrollLeft;
+            const y1 = fromRect.top + fromRect.height / 2 - boardRect.top + board.scrollTop;
+            const x2 = toRect.left + toRect.width / 2 - boardRect.left + board.scrollLeft;
+            const y2 = toRect.top + toRect.height / 2 - boardRect.top + board.scrollTop;
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const midX = (x1 + x2) / 2;
+            const d = `M ${x1} ${y1} Q ${midX} ${y1}, ${midX} ${(y1 + y2) / 2} T ${x2} ${y2}`;
+            path.setAttribute('d', d);
+            path.setAttribute('class', 'mindmap-connection');
+            connectionSvg.appendChild(path);
+        }
+    });
+}
+
+// ==================== DRAG & DROP ====================
+function startDrag(e, element, type) {
+    const itemData = type === 'note' ?
+        state.notes.find(n => n.id == element.dataset.id) :
+        state.mindMapNodes.find(n => n.id == element.dataset.id);
+
+    if (type === 'note' && itemData && itemData.pinned) return;
+
+    state.draggedItem = {
+        element,
+        type,
+        offsetX: e.clientX - element.offsetLeft,
+        offsetY: e.clientY - element.offsetTop - 70
+    };
+
+    element.classList.add('dragging');
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', stopDrag);
+}
+
+function drag(e) {
+    if (!state.draggedItem) return;
+
+    const element = state.draggedItem.element;
+    let x = e.clientX - state.draggedItem.offsetX;
+    let y = e.clientY - state.draggedItem.offsetY;
+
+    const maxX = window.innerWidth - element.offsetWidth;
+    const maxY = window.innerHeight - element.offsetHeight - 70;
+    x = Math.max(0, Math.min(x, maxX));
+    y = Math.max(0, Math.min(y, maxY));
+
+    element.style.left = x + 'px';
+    element.style.top = y + 'px';
+
+    if (state.draggedItem.type === 'mindmap') {
+        redrawConnections();
+    }
+}
+
+function stopDrag() {
+    if (!state.draggedItem) return;
+
+    const element = state.draggedItem.element;
+    const type = state.draggedItem.type;
+    element.classList.remove('dragging');
+
+    const itemData = type === 'note' ?
+        state.notes.find(n => n.id == element.dataset.id) :
+        state.mindMapNodes.find(n => n.id == element.dataset.id);
+
+    if (itemData) {
+        itemData.x = parseInt(element.style.left);
+        itemData.y = parseInt(element.style.top);
+        saveToStorage();
+    }
+
+    state.draggedItem = null;
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', stopDrag);
+}
+
+function bringToFront(element) {
+    element.style.zIndex = ++state.highestZIndex;
+    const itemData = element.dataset.type === 'note' ?
+        state.notes.find(n => n.id == element.dataset.id) :
+        state.mindMapNodes.find(n => n.id == element.dataset.id);
+    if (itemData) {
+        itemData.zIndex = state.highestZIndex;
+    }
+}
+
+// ==================== DRAWING ====================
+function toggleDrawingMode() {
+    state.drawingMode = !state.drawingMode;
+    canvas.classList.toggle('active', state.drawingMode);
+    toggleDrawBtn.classList.toggle('active', state.drawingMode);
+
+    document.querySelectorAll('.sticky-note, .mindmap-node').forEach(item => {
+        item.style.pointerEvents = state.drawingMode ? 'none' : 'auto';
+    });
+}
+
+function startDrawing(e) {
+    if (!state.drawingMode) return;
+
+    state.isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+}
+
+function draw(e) {
+    if (!state.isDrawing || !state.drawingMode) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = state.penColor;
+    ctx.lineWidth = state.penSize;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+}
+
+function stopDrawing() {
+    if (state.isDrawing) {
+        state.isDrawing = false;
+        ctx.closePath();
+        saveCanvasToStorage();
+    }
+}
+
+function clearCanvas() {
+    showModal(
+        'Clear All Drawings',
+        'Are you sure you want to clear all drawings?',
+        () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            saveCanvasToStorage();
+        },
+        'Clear'
+    );
+}
+
+// ==================== CLEAR ALL ====================
+function clearAll() {
+    showModal(
+        'Clear Everything',
+        '<strong>Warning:</strong> This will delete all notes, mind map nodes, connections, and drawings. This action cannot be undone.',
+        () => {
+            document.querySelectorAll('.sticky-note, .mindmap-node').forEach((item, index) => {
+                setTimeout(() => {
+                    item.style.animation = 'fadeOut 0.2s ease-out forwards';
+                    setTimeout(() => item.remove(), 200);
+                }, index * 30);
+            });
+
+            setTimeout(() => {
+                state.notes = [];
+                state.mindMapNodes = [];
+                state.connections = [];
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                redrawConnections();
+                saveToStorage();
+                saveCanvasToStorage();
+            }, (state.notes.length + state.mindMapNodes.length) * 30 + 200);
+        },
+        'Clear All'
+    );
+}
+
+// ==================== STORAGE ====================
+function saveToStorage() {
+    localStorage.setItem('enhancedStickyNotes', JSON.stringify(state.notes));
+    localStorage.setItem('enhancedMindMapNodes', JSON.stringify(state.mindMapNodes));
+    localStorage.setItem('enhancedConnections', JSON.stringify(state.connections));
+}
+
+function saveCanvasToStorage() {
+    localStorage.setItem('enhancedStickyCanvas', canvas.toDataURL());
+}
+
+function loadFromStorage() {
+    // Load notes
+    const savedNotes = localStorage.getItem('enhancedStickyNotes');
+    if (savedNotes) {
+        state.notes = JSON.parse(savedNotes);
+        state.notes.forEach(noteData => {
+            const noteElement = noteTemplate.content.cloneNode(true).querySelector('.sticky-note');
+            noteElement.dataset.id = noteData.id;
+            noteElement.dataset.type = 'note';
+            noteElement.style.left = noteData.x + 'px';
+            noteElement.style.top = noteData.y + 'px';
+            noteElement.style.background = noteData.color;
+            noteElement.style.zIndex = noteData.zIndex || 10;
+
+            if (noteData.zIndex > state.highestZIndex) {
+                state.highestZIndex = noteData.zIndex;
+            }
+
+            const content = noteElement.querySelector('.note-content');
+            content.innerHTML = noteData.text;
+
+            const timestamp = noteElement.querySelector('.note-timestamp');
+            const date = new Date(noteData.timestamp);
+            timestamp.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            if (noteData.pinned) {
+                noteElement.classList.add('pinned');
+            }
+
+            setupNoteEventListeners(noteElement);
+            board.appendChild(noteElement);
+        });
+    }
+
+    // Load mind map nodes
+    const savedNodes = localStorage.getItem('enhancedMindMapNodes');
+    if (savedNodes) {
+        state.mindMapNodes = JSON.parse(savedNodes);
+        state.mindMapNodes.forEach(nodeData => {
+            const nodeElement = mindMapTemplate.content.cloneNode(true).querySelector('.mindmap-node');
+            nodeElement.dataset.id = nodeData.id;
+            nodeElement.dataset.type = 'mindmap';
+            nodeElement.style.left = nodeData.x + 'px';
+            nodeElement.style.top = nodeData.y + 'px';
+            nodeElement.style.zIndex = nodeData.zIndex || 10;
+
+            if (nodeData.zIndex > state.highestZIndex) {
+                state.highestZIndex = nodeData.zIndex;
+            }
+
+            const content = nodeElement.querySelector('.mindmap-content');
+            content.textContent = nodeData.text;
+
+            setupMindMapEventListeners(nodeElement);
+            board.appendChild(nodeElement);
+        });
+    }
+
+    // Load connections
+    const savedConnections = localStorage.getItem('enhancedConnections');
+    if (savedConnections) {
+        state.connections = JSON.parse(savedConnections);
+    }
+
+    // Load canvas
+    const savedCanvas = localStorage.getItem('enhancedStickyCanvas');
+    if (savedCanvas) {
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = savedCanvas;
+    }
+}
+
+// ==================== EVENT LISTENERS ====================
+function setupEventListeners() {
+    // Add note
+    addNoteBtn.addEventListener('click', () => {
+        const x = Math.random() * (window.innerWidth - 350) + 50;
+        const y = Math.random() * (window.innerHeight - 340) + 50;
+        const note = createNote(x, y);
+        setTimeout(() => {
+            note.element.querySelector('.note-content').focus();
+        }, 100);
+    });
+
+    // Add mind map node
+    addMindMapBtn.addEventListener('click', () => {
+        const x = Math.random() * (window.innerWidth - 250) + 50;
+        const y = Math.random() * (window.innerHeight - 180) + 50;
+        const node = createMindMapNode(x, y);
+        setTimeout(() => {
+            node.element.querySelector('.mindmap-content').focus();
+        }, 100);
+    });
+
+    // REMOVED: Click on board to add note - Only use Add Note button
+
+    // Drawing
+    toggleDrawBtn.addEventListener('click', toggleDrawingMode);
+    clearDrawBtn.addEventListener('click', clearCanvas);
+    clearAllBtn.addEventListener('click', clearAll);
+
+    // Colors
+    colorBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            colorBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.selectedColor = btn.dataset.color;
+        });
+    });
+
+    // Pen
+    penColorInput.addEventListener('change', (e) => {
+        state.penColor = e.target.value;
+    });
+
+    penSizeInput.addEventListener('input', (e) => {
+        state.penSize = e.target.value;
+    });
+
+    // Canvas drawing
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    // Modal
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) {
+            hideModal();
+        }
+    });
+
+    modalOverlay.querySelector('.modal-close').addEventListener('click', hideModal);
+    modalOverlay.querySelector('.modal-cancel').addEventListener('click', hideModal);
+
+    // Resize
+    window.addEventListener('resize', () => {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
+
+        setupCanvas();
+        setupConnectionSvg();
+        ctx.drawImage(tempCanvas, 0, 0);
+        redrawConnections();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.target.matches('[contenteditable], input, textarea')) return;
+
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key.toLowerCase()) {
+                case 'n':
+                    e.preventDefault();
+                    addNoteBtn.click();
+                    break;
+                case 'm':
+                    e.preventDefault();
+                    addMindMapBtn.click();
+                    break;
+                case 'd':
+                    e.preventDefault();
+                    toggleDrawingMode();
+                    break;
+            }
+        }
+
+        if (e.key === 'Escape') {
+            if (state.drawingMode) {
+                toggleDrawingMode();
+            } else if (state.connectingFrom) {
+                state.connectingFrom = null;
+                document.querySelectorAll('.mindmap-connect-btn').forEach(b => b.classList.remove('connecting'));
+            }
+        }
+
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+            switch(e.key.toLowerCase()) {
+                case 'n':
+                    addNoteBtn.click();
+                    break;
+                case 'm':
+                    addMindMapBtn.click();
+                    break;
+                case 'd':
+                    toggleDrawingMode();
+                    break;
+            }
+        }
+    });
+}
+
+// ==================== START ====================
+init();
