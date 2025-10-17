@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Drawnix Clone - Mind Map</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+            background: #F5F5F5;
+        }
+
+        /* Infinite Canvas */
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #FFFFFF;
+            cursor: grab;
+        }
+
+        #canvas:active {
+            cursor: grabbing;
+        }
+
+        /* Island (Floating Toolbar) */
+        .island {
+            position: absolute;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 4px;
+            display: flex;
+            gap: 4px;
+            z-index: 1000;
+        }
+
+        /* Tool Button */
+        .tool-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+            transition: background 0.15s;
+        }
+
+        .tool-btn:hover {
+            background: #F0F0F0;
+        }
+
+        .tool-btn.active {
+            background: #E8E8FF;
+        }
+
+        .tool-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* AppToolbar - Top Left */
+        .app-toolbar {
+            top: 24px;
+            left: 24px;
+        }
+
+        /* CreationToolbar - Top Center */
+        .creation-toolbar {
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* ZoomToolbar - Top Right */
+        .zoom-toolbar {
+            top: 24px;
+            right: 24px;
+        }
+
+        .zoom-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 8px;
+            min-width: 56px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .zoom-display:hover {
+            background: #F0F0F0;
+        }
+
+        /* ThemeToolbar - Bottom Right */
+        .theme-toolbar {
+            bottom: 24px;
+            right: 24px;
+        }
+
+        .theme-select {
+            padding: 6px 12px;
+            border: none;
+            background: #F0F0F0;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Infinite Canvas -->
+    <div id="canvas">
+        <svg id="svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></svg>
+    </div>
+
+    <!-- App Toolbar (Top Left) -->
+    <div class="island app-toolbar">
+        <button class="tool-btn" title="Menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+        </button>
+        <button class="tool-btn" title="Undo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+            </svg>
+        </button>
+        <button class="tool-btn" title="Redo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 7v6h-6"/>
+                <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Creation Toolbar (Top Center) -->
+    <div class="island creation-toolbar">
+        <button class="tool-btn" data-tool="hand" title="Hand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 11V6a2 2 0 00-4 0v5M14 11V4a2 2 0 00-4 0v7m-2 0V9a2 2 0 10-4 0v11a7 7 0 0014 0v-5"/>
+            </svg>
+        </button>
+        <button class="tool-btn active" data-tool="select" title="Select">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
+            </svg>
+        </button>
+        <button class="tool-btn" data-tool="mind" title="Mind Map">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="2"/>
+                <circle cx="6" cy="6" r="1.5"/>
+                <circle cx="18" cy="6" r="1.5"/>
+                <circle cx="6" cy="18" r="1.5"/>
+                <circle cx="18" cy="18" r="1.5"/>
+                <line x1="12" y1="12" x2="6" y2="6"/>
+                <line x1="12" y1="12" x2="18" y2="6"/>
+                <line x1="12" y1="12" x2="6" y2="18"/>
+                <line x1="12" y1="12" x2="18" y2="18"/>
+            </svg>
+        </button>
+        <button class="tool-btn" data-tool="text" title="Text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4 7 4 4 20 4 20 7"/>
+                <line x1="9" y1="20" x2="15" y2="20"/>
+                <line x1="12" y1="4" x2="12" y2="20"/>
+            </svg>
+        </button>
+        <button class="tool-btn" data-tool="pen" title="Pen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+            </svg>
+        </button>
+        <button class="tool-btn" data-tool="arrow" title="Arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+            </svg>
+        </button>
+        <button class="tool-btn" data-tool="shape" title="Shape">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+            </svg>
+        </button>
+        <button class="tool-btn" data-tool="image" title="Image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+            </svg>
+        </button>
+        <button class="tool-btn" data-tool="more" title="More">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1"/>
+                <circle cx="19" cy="12" r="1"/>
+                <circle cx="5" cy="12" r="1"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Zoom Toolbar (Top Right) -->
+    <div class="island zoom-toolbar">
+        <button class="tool-btn" id="zoomOut" title="Zoom Out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+        </button>
+        <div class="zoom-display" id="zoomDisplay">100%</div>
+        <button class="tool-btn" id="zoomIn" title="Zoom In">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+                <line x1="11" y1="8" x2="11" y2="14"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Theme Toolbar (Bottom Right) -->
+    <div class="island theme-toolbar">
+        <select class="theme-select" id="themeSelect">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+    </div>
+
+    <script>
+        // Simple tool switching
+        const toolBtns = document.querySelectorAll('[data-tool]');
+        toolBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toolBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                console.log('Tool selected:', btn.dataset.tool);
+            });
+        });
+
+        // Zoom controls
+        let zoom = 1;
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            zoom = Math.min(zoom + 0.1, 2);
+            updateZoom();
+        });
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            zoom = Math.max(zoom - 0.1, 0.5);
+            updateZoom();
+        });
+
+        function updateZoom() {
+            document.getElementById('zoomDisplay').textContent = Math.round(zoom * 100) + '%';
+            document.getElementById('canvas').style.transform = `scale(${zoom})`;
+        }
+
+        console.log('Simple Drawnix clone loaded');
+    </script>
+</body>
+</html>

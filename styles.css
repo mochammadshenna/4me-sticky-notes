@@ -13,15 +13,38 @@
     --success: #10B981;
     --bg-main: #F9FAFB;
     --bg-toolbar: #FFFFFF;
+    --bg-canvas: #FFFFFF;
     --text-primary: #111827;
     --text-secondary: #6B7280;
     --border: #E5E7EB;
+    --grid-color: #E5E7EB;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+    --primary: #A78BFA;
+    --primary-dark: #8B5CF6;
+    --danger: #F87171;
+    --danger-dark: #EF4444;
+    --success: #34D399;
+    --bg-main: #111827;
+    --bg-toolbar: #1F2937;
+    --bg-canvas: #1F2937;
+    --text-primary: #F9FAFB;
+    --text-secondary: #9CA3AF;
+    --border: #374151;
+    --grid-color: #374151;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.4);
 }
 
 body {
@@ -31,6 +54,9 @@ body {
     overflow: hidden;
     height: 100vh;
     width: 100vw;
+    margin: 0;
+    padding: 0;
+    position: relative;
 }
 
 /* ==================== TOOLBAR ==================== */
@@ -363,43 +389,262 @@ body {
 }
 
 .sticky-board {
+    background-color: var(--bg-canvas);
     background-image:
-        linear-gradient(#E5E7EB 1px, transparent 1px),
-        linear-gradient(90deg, #E5E7EB 1px, transparent 1px);
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
     background-size: 20px 20px;
     overflow: auto;
 }
 
 .mindmap-board {
-    background: #FFFFFF;
+    background: var(--bg-canvas);
     overflow: hidden;
-    display: flex;
-    position: relative;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 9999 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    /* Drawnix Grid Layout: 50px top, 64px left, 300px right, 30px bottom */
+    display: grid;
+    grid-template-rows: 50px 1fr 30px;
+    grid-template-columns: 64px 1fr 300px;
 }
 
 .mindmap-board.panning {
     cursor: grabbing;
 }
 
-/* Drawnix-style Left Toolbar */
+/* ==================== DRAWNIX-STYLE MIND MAP TOP MENU BAR ==================== */
+.mindmap-top-menubar {
+    grid-column: 1 / 4;
+    grid-row: 1;
+    background: var(--bg-toolbar);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 2001;
+}
+
+.menu-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.mindmap-logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-right: 16px;
+    letter-spacing: -0.5px;
+}
+
+.menu-btn {
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s;
+    font-family: 'Inter', sans-serif;
+}
+
+.menu-btn:hover {
+    background: var(--bg-main);
+}
+
+.menu-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zoom-controls-mindmap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: var(--bg-canvas);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.zoom-btn-mindmap {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.zoom-btn-mindmap:hover {
+    background: var(--bg-main);
+}
+
+.zoom-value-mindmap {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    min-width: 45px;
+    text-align: center;
+}
+
+.icon-btn-mindmap {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.icon-btn-mindmap svg {
+    width: 20px;
+    height: 20px;
+}
+
+.icon-btn-mindmap:hover {
+    background: var(--bg-main);
+    color: var(--text-primary);
+}
+
+/* ==================== DRAWNIX-STYLE MIND MAP STATUS BAR ==================== */
+.mindmap-status-bar {
+    grid-column: 1 / 4;
+    grid-row: 3;
+    background: var(--bg-toolbar);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.status-left-mindmap,
+.status-center-mindmap,
+.status-right-mindmap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.status-item-mindmap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ==================== DRAWNIX-STYLE LEFT TOOLBAR ==================== */
 .mindmap-left-toolbar {
-    width: 60px;
+    grid-column: 1;
+    grid-row: 2;
     background: #F8FAFC;
     border-right: 1px solid #E2E8F0;
     display: flex;
     flex-direction: column;
-    padding: 16px 0;
-    gap: 8px;
-    z-index: 100;
+    padding: 12px 8px;
+    gap: 4px;
+    overflow-y: auto;
+    z-index: 2001;
+}
+
+[data-theme="dark"] .mindmap-left-toolbar {
+    background: var(--bg-toolbar);
+    border-right-color: var(--border);
 }
 
 .tool-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 0 10px;
+    gap: 4px;
+    padding: 0 4px;
 }
 
+.tool-btn-mindmap {
+    width: 48px;
+    height: 48px;
+    border: none;
+    background: transparent;
+    color: #64748B;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: all 0.15s;
+    position: relative;
+    font-family: 'Inter', sans-serif;
+}
+
+.tool-btn-mindmap svg {
+    width: 20px;
+    height: 20px;
+}
+
+.tool-label-mindmap {
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.tool-btn-mindmap:hover {
+    background: var(--bg-main);
+    color: var(--text-primary);
+}
+
+.tool-btn-mindmap.active {
+    background: var(--active-bg);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .tool-btn-mindmap {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .tool-btn-mindmap:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .tool-btn-mindmap.active {
+    background: var(--active-bg);
+    color: var(--primary);
+}
+
+.toolbar-separator-mindmap {
+    height: 1px;
+    background: var(--divider-color);
+    margin: 8px 4px;
+}
+
+/* Keep old .tool-btn for compatibility with hierarchical mind map nodes */
 .tool-btn {
     width: 40px;
     height: 40px;
@@ -434,14 +679,16 @@ body {
     margin: 8px 10px;
 }
 
-/* Canvas Wrapper */
+/* ==================== DRAWNIX-STYLE CANVAS WRAPPER ==================== */
 .mindmap-canvas-wrapper {
-    flex: 1;
+    grid-column: 2;
+    grid-row: 2;
     position: relative;
     overflow: hidden;
-    background:
-        linear-gradient(#E5E7EB 1px, transparent 1px),
-        linear-gradient(90deg, #E5E7EB 1px, transparent 1px);
+    background: var(--canvas-bg);
+    background-image:
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
     background-size: 20px 20px;
     cursor: grab;
 }
@@ -498,14 +745,15 @@ body {
     border-radius: 8px;
     padding: 16px;
     box-shadow: var(--shadow-md);
-    cursor: move;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: grab;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
     z-index: 10;
     display: flex;
     flex-direction: column;
     font-family: 'Inter', sans-serif;
     resize: both;
     overflow: auto;
+    will-change: transform;
 }
 
 .sticky-note::before {
@@ -517,32 +765,61 @@ body {
     height: 6px;
     background: linear-gradient(to bottom, rgba(0,0,0,0.05), transparent);
     border-radius: 8px 8px 0 0;
+    pointer-events: none;
 }
 
 .sticky-note:hover {
-    box-shadow: var(--shadow-xl);
-    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px) scale(1.01);
 }
 
 .sticky-note.dragging {
-    opacity: 0.98;
+    opacity: 0.75;
     z-index: 1000;
     cursor: grabbing !important;
-    box-shadow: var(--shadow-xl);
-    will-change: transform;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: scale(1.05) rotate(2deg);
+    transition: none !important;
 }
 
 .sticky-note.pinned {
     box-shadow: 0 0 0 3px var(--primary), var(--shadow-lg);
+    z-index: 9999 !important;
+    overflow: visible !important;
 }
 
 .sticky-note.pinned::after {
     content: '📌';
     position: absolute;
-    top: -12px;
+    top: -16px;
     right: 16px;
-    font-size: 22px;
+    font-size: 24px;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    z-index: 10000;
+    pointer-events: none;
+}
+
+/* ==================== NOTE DRAG HANDLE ==================== */
+.note-drag-handle {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+    color: #000;
+}
+
+.sticky-note:hover .note-drag-handle {
+    opacity: 1;
+}
+
+.sticky-note.dragging .note-drag-handle {
+    cursor: grabbing;
+    opacity: 0.5;
 }
 
 /* ==================== NOTE HEADER ==================== */
@@ -552,6 +829,7 @@ body {
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
+    margin-top: 8px;
     opacity: 0;
     transition: var(--transition);
 }
@@ -880,6 +1158,628 @@ body {
     pointer-events: none;
 }
 
+/* Shape delete button */
+.shape-delete-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: var(--danger);
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+    z-index: 100;
+}
+
+.shape-node:hover .shape-delete-btn,
+.text-node:hover .shape-delete-btn {
+    display: flex;
+}
+
+.shape-delete-btn:hover {
+    transform: scale(1.15);
+    background: var(--danger-dark);
+    box-shadow: var(--shadow-lg);
+}
+
+/* ==================== DRAWNIX-STYLE PROPERTIES PANEL ==================== */
+.properties-panel-mindmap {
+    grid-column: 3;
+    grid-row: 2;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 2001;
+}
+
+.properties-panel-mindmap.hidden {
+    display: none;
+}
+
+.properties-header-mindmap {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.properties-header-mindmap h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.close-panel-btn-mindmap {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+}
+
+.close-panel-btn-mindmap:hover {
+    background: var(--bg-main);
+    color: var(--text-primary);
+}
+
+.properties-content-mindmap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.no-selection-mindmap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.no-selection-mindmap svg {
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.no-selection-mindmap p {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.shape-properties-mindmap {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.property-group-mindmap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.property-group-mindmap > label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.color-picker-group-mindmap {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.color-input-full-mindmap {
+    width: 60px;
+    height: 40px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 2px;
+}
+
+.color-input-full-mindmap:hover {
+    border-color: var(--primary);
+}
+
+.hex-input-mindmap {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-main);
+    transition: var(--transition);
+}
+
+.hex-input-mindmap:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.slider-group-mindmap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.slider-group-mindmap input[type="range"] {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+
+.slider-group-mindmap input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.slider-group-mindmap input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: var(--shadow-md);
+}
+
+.value-display-mindmap {
+    min-width: 45px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.size-inputs-mindmap {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.size-input-group-mindmap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.size-input-group-mindmap label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 12px;
+}
+
+.size-input-mindmap {
+    flex: 1;
+    padding: 8px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-main);
+    transition: var(--transition);
+}
+
+.size-input-mindmap:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.lock-btn-mindmap {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    background: var(--bg-main);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+
+.lock-btn-mindmap:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.layer-controls-mindmap {
+    display: flex;
+    gap: 8px;
+}
+
+.layer-btn-mindmap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    background: var(--bg-main);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: 'Inter', sans-serif;
+}
+
+.layer-btn-mindmap:hover {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+}
+
+.btn-mindmap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-danger-mindmap {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-danger-mindmap:hover {
+    background: var(--danger-dark);
+}
+
+/* Keep old properties panel styles for compatibility */
+.properties-panel {
+    width: 280px;
+    background: var(--bg-toolbar);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.properties-panel.hidden {
+    transform: translateX(100%);
+}
+
+.properties-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.properties-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.close-panel-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-panel-btn:hover {
+    background: var(--bg-main);
+    color: var(--text-primary);
+}
+
+.properties-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.no-selection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.no-selection svg {
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.no-selection p {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.shape-properties {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.property-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.property-group > label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.color-picker-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.color-input-full {
+    width: 60px;
+    height: 40px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 2px;
+}
+
+.color-input-full:hover {
+    border-color: var(--primary);
+}
+
+.hex-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-main);
+    transition: var(--transition);
+}
+
+.hex-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.slider-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.slider-group input[type="range"] {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: var(--shadow-md);
+}
+
+.slider-group input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    border: none;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.value-display {
+    min-width: 45px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.size-inputs {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.size-input-group {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.size-input-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 12px;
+}
+
+.size-input {
+    flex: 1;
+    padding: 8px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-main);
+    transition: var(--transition);
+}
+
+.size-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.lock-btn {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    background: var(--bg-main);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+
+.lock-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.lock-btn.locked {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.layer-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.layer-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    background: var(--bg-main);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.layer-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+}
+
+.layer-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Connector tool styles */
+.connector-source {
+    box-shadow: 0 0 0 3px #10B981, var(--shadow-lg);
+    animation: pulse 2s infinite;
+}
+
+.connector-start-marker {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #10B981;
+    border: 2px solid white;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: var(--shadow-md);
+    animation: pulse 2s infinite;
+    z-index: 100;
+}
+
+.drawn-connector {
+    pointer-events: stroke;
+    stroke-width: 8;
+    cursor: pointer;
+    transition: stroke-width 0.2s ease;
+}
+
+.drawn-connector:hover {
+    stroke-width: 10;
+    stroke: #9333EA;
+}
+
 /* Mind map node dragging state */
 .mindmap-node.dragging {
     cursor: grabbing !important;
@@ -892,6 +1792,55 @@ body {
 /* Smooth transition for mind map nodes */
 .mindmap-node {
     transition: box-shadow 0.2s ease-out, transform 0.2s ease-out;
+}
+
+/* ==================== EXPORT MODAL ==================== */
+.export-format-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2001;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.export-format-content {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: var(--shadow-xl);
+    text-align: center;
+    min-width: 320px;
+    animation: slideIn 0.3s ease-out;
+}
+
+.export-format-content h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.export-format-content p {
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+}
+
+.format-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.format-buttons .btn {
+    min-width: 80px;
 }
 
 /* ==================== MODAL ==================== */
@@ -1022,11 +1971,12 @@ body {
     }
 }
 
-.sticky-note {
+/* Apply animations only when notes are created */
+.sticky-note:not(.dragging) {
     animation: slideInScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.mindmap-node {
+.mindmap-node:not(.dragging) {
     animation: slideInScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(timeout 15 npx playwright test --headed --reporter=list)"
+      "Bash(timeout 15 npx playwright test --headed --reporter=list)",
+      "Read(//tmp/drawnix/**)",
+      "Bash(git clone:*)"
     ],
     "deny": [],
     "ask": []

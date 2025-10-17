@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawnix Clone - 4me Whiteboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ==================== RESET & VARIABLES ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Canvas */
+            --canvas-bg: #FFFFFF;
+            --grid-color: #E5E7EB;
+
+            /* UI Backgrounds */
+            --toolbar-bg: #F8FAFC;
+            --panel-bg: #FFFFFF;
+            --hover-bg: #F1F5F9;
+            --active-bg: #E0E7FF;
+
+            /* Borders */
+            --border-color: #E2E8F0;
+            --divider-color: #CBD5E1;
+
+            /* Text */
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+
+            /* Accent */
+            --accent-primary: #3B82F6;
+            --accent-hover: #2563EB;
+            --accent-active: #1D4ED8;
+
+            /* Danger */
+            --danger: #EF4444;
+            --success: #10B981;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        [data-theme="dark"] {
+            --canvas-bg: #0F172A;
+            --grid-color: #1E293B;
+            --toolbar-bg: #1E293B;
+            --panel-bg: #0F172A;
+            --hover-bg: #334155;
+            --active-bg: #1E3A8A;
+            --border-color: #334155;
+            --divider-color: #475569;
+            --text-primary: #F1F5F9;
+            --text-secondary: #CBD5E1;
+            --text-muted: #94A3B8;
+            --accent-primary: #60A5FA;
+            --accent-hover: #3B82F6;
+            --accent-active: #2563EB;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            background: var(--canvas-bg);
+            overflow: hidden;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 50px 1fr 30px;
+            grid-template-columns: 64px 1fr 300px;
+        }
+
+        /* ==================== TOP MENU BAR ==================== */
+        .top-menubar {
+            grid-column: 1 / 4;
+            grid-row: 1;
+            background: var(--toolbar-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 1000;
+        }
+
+        .menu-left {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-right: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        .menu-btn {
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+
+        .menu-btn:hover {
+            background: var(--hover-bg);
+        }
+
+        .menu-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        .zoom-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .zoom-btn:hover {
+            background: var(--hover-bg);
+        }
+
+        .zoom-value {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-width: 45px;
+            text-align: center;
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .icon-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        /* ==================== LEFT TOOLBAR ==================== */
+        .left-toolbar {
+            grid-column: 1;
+            grid-row: 2;
+            background: var(--toolbar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 12px 8px;
+            gap: 4px;
+            overflow-y: auto;
+        }
+
+        .tool-btn {
+            width: 48px;
+            height: 48px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.15s;
+            position: relative;
+        }
+
+        .tool-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .tool-label {
+            font-size: 9px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .tool-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        .tool-btn.active {
+            background: var(--active-bg);
+            color: var(--accent-primary);
+        }
+
+        .tool-divider {
+            height: 1px;
+            background: var(--divider-color);
+            margin: 8px 0;
+        }
+
+        /* ==================== CANVAS AREA ==================== */
+        .canvas-area {
+            grid-column: 2;
+            grid-row: 2;
+            position: relative;
+            overflow: hidden;
+            background: var(--canvas-bg);
+            background-image:
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            cursor: default;
+        }
+
+        .canvas-container.hand-tool {
+            cursor: grab;
+        }
+
+        .canvas-container.hand-tool:active {
+            cursor: grabbing;
+        }
+
+        .canvas-container.crosshair {
+            cursor: crosshair;
+        }
+
+        /* ==================== PROPERTIES PANEL ==================== */
+        .properties-panel {
+            grid-column: 3;
+            grid-row: 2;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .properties-panel.hidden {
+            display: none;
+        }
+
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .panel-content {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .property-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .property-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .property-input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--canvas-bg);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            transition: border-color 0.15s;
+        }
+
+        .property-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .no-selection {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .no-selection svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .no-selection p {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* ==================== STATUS BAR ==================== */
+        .status-bar {
+            grid-column: 1 / 4;
+            grid-row: 3;
+            background: var(--toolbar-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .status-left,
+        .status-center,
+        .status-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ==================== SHAPES ON CANVAS ==================== */
+        .shape {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+        }
+
+        .shape.selected {
+            outline: 2px solid var(--accent-primary);
+            outline-offset: 2px;
+        }
+
+        .shape:hover {
+            outline: 1px solid var(--accent-primary);
+            outline-offset: 1px;
+        }
+
+        /* ==================== ANIMATIONS ==================== */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ==================== SCROLLBAR ==================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--divider-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <!-- Top Menu Bar -->
+    <header class="top-menubar">
+        <div class="menu-left">
+            <div class="logo">Drawnix</div>
+            <button class="menu-btn" id="fileMenu">File ▼</button>
+            <button class="menu-btn" id="editMenu">Edit ▼</button>
+            <button class="menu-btn" id="viewMenu">View ▼</button>
+            <button class="menu-btn" id="insertMenu">Insert ▼</button>
+            <button class="menu-btn" id="helpMenu">Help</button>
+        </div>
+        <div class="menu-right">
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoomOut">−</button>
+                <span class="zoom-value" id="zoomValue">100%</span>
+                <button class="zoom-btn" id="zoomIn">+</button>
+            </div>
+            <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v6h6"/>
+                    <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+                </svg>
+            </button>
+            <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Y)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 7v6h-6"/>
+                    <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/>
+                </svg>
+            </button>
+            <button class="icon-btn" id="themeToggle" title="Toggle theme">
+                <svg id="lightIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Left Toolbar -->
+    <aside class="left-toolbar">
+        <button class="tool-btn active" data-tool="select" title="Select (V)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
+            </svg>
+            <span class="tool-label">Select</span>
+        </button>
+        <button class="tool-btn" data-tool="hand" title="Hand (H)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 11V6a2 2 0 00-4 0v5M14 11V4a2 2 0 00-4 0v7m-2 0V9a2 2 0 10-4 0v11a7 7 0 0014 0v-5"/>
+            </svg>
+            <span class="tool-label">Hand</span>
+        </button>
+        <button class="tool-btn" data-tool="draw" title="Draw (D)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+            </svg>
+            <span class="tool-label">Draw</span>
+        </button>
+
+        <div class="tool-divider"></div>
+
+        <button class="tool-btn" data-tool="rectangle" title="Rectangle (R)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+            </svg>
+            <span class="tool-label">Rect</span>
+        </button>
+        <button class="tool-btn" data-tool="circle" title="Circle (C)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/>
+            </svg>
+            <span class="tool-label">Circle</span>
+        </button>
+        <button class="tool-btn" data-tool="triangle" title="Triangle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2 L22 20 L2 20 Z"/>
+            </svg>
+            <span class="tool-label">Triangle</span>
+        </button>
+        <button class="tool-btn" data-tool="diamond" title="Diamond">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2 L22 12 L12 22 L2 12 Z"/>
+            </svg>
+            <span class="tool-label">Diamond</span>
+        </button>
+
+        <div class="tool-divider"></div>
+
+        <button class="tool-btn" data-tool="arrow" title="Arrow (A)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+            </svg>
+            <span class="tool-label">Arrow</span>
+        </button>
+        <button class="tool-btn" data-tool="line" title="Line (L)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="19" x2="19" y2="5"/>
+            </svg>
+            <span class="tool-label">Line</span>
+        </button>
+        <button class="tool-btn" data-tool="text" title="Text (T)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4 7 4 4 20 4 20 7"/>
+                <line x1="9" y1="20" x2="15" y2="20"/>
+                <line x1="12" y1="4" x2="12" y2="20"/>
+            </svg>
+            <span class="tool-label">Text</span>
+        </button>
+
+        <div class="tool-divider"></div>
+
+        <button class="tool-btn" data-tool="image" title="Image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span class="tool-label">Image</span>
+        </button>
+        <button class="tool-btn" data-tool="eraser" title="Eraser (E)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 20H7L3 16l6-6 5 5"/>
+                <path d="m15 9 5 5"/>
+            </svg>
+            <span class="tool-label">Eraser</span>
+        </button>
+    </aside>
+
+    <!-- Canvas Area -->
+    <main class="canvas-area">
+        <div class="canvas-container" id="canvas">
+            <svg id="connectionSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="var(--accent-primary)"/>
+                    </marker>
+                </defs>
+            </svg>
+            <!-- Shapes will be added here dynamically -->
+        </div>
+    </main>
+
+    <!-- Properties Panel -->
+    <aside class="properties-panel" id="propertiesPanel">
+        <div class="panel-header">
+            <span class="panel-title">Properties</span>
+            <button class="icon-btn" id="closePanelBtn">×</button>
+        </div>
+        <div class="panel-content">
+            <div id="noSelection" class="no-selection">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
+                </svg>
+                <p>Select a shape to<br>edit properties</p>
+            </div>
+            <div id="shapeProperties" style="display:none;">
+                <!-- Properties will be populated by JavaScript -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+        <div class="status-left">
+            <span class="status-item">X: <strong id="statusX">0</strong></span>
+            <span class="status-item">Y: <strong id="statusY">0</strong></span>
+        </div>
+        <div class="status-center">
+            <span class="status-item">Zoom: <strong id="statusZoom">100%</strong></span>
+            <span class="status-item">Grid: <strong>On</strong></span>
+        </div>
+        <div class="status-right">
+            <span class="status-item" id="statusSelection">Ready</span>
+        </div>
+    </footer>
+
+    <script>
+        // Basic initialization - Full implementation in separate JS file
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Drawnix Clone initialized');
+
+            // Theme toggle
+            const themeToggle = document.getElementById('themeToggle');
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                document.body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            });
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.body.setAttribute('data-theme', savedTheme);
+
+            // Tool selection
+            const toolBtns = document.querySelectorAll('.tool-btn');
+            toolBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    toolBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const tool = btn.getAttribute('data-tool');
+                    console.log('Tool selected:', tool);
+
+                    // Update cursor
+                    const canvas = document.getElementById('canvas');
+                    canvas.className = 'canvas-container';
+                    if (tool === 'hand') {
+                        canvas.classList.add('hand-tool');
+                    } else if (['rectangle', 'circle', 'triangle', 'diamond', 'arrow', 'line', 'draw'].includes(tool)) {
+                        canvas.classList.add('crosshair');
+                    }
+                });
+            });
+
+            // Mouse position tracking
+            const canvas = document.getElementById('canvas');
+            canvas.addEventListener('mousemove', (e) => {
+                document.getElementById('statusX').textContent = Math.round(e.clientX);
+                document.getElementById('statusY').textContent = Math.round(e.clientY);
+            });
+
+            // Zoom controls
+            let zoomLevel = 100;
+            document.getElementById('zoomIn').addEventListener('click', () => {
+                zoomLevel = Math.min(200, zoomLevel + 10);
+                updateZoom();
+            });
+            document.getElementById('zoomOut').addEventListener('click', () => {
+                zoomLevel = Math.max(25, zoomLevel - 10);
+                updateZoom();
+            });
+
+            function updateZoom() {
+                document.getElementById('zoomValue').textContent = zoomLevel + '%';
+                document.getElementById('statusZoom').textContent = zoomLevel + '%';
+                canvas.style.transform = `scale(${zoomLevel / 100})`;
+            }
+
+            // Placeholder message
+            document.getElementById('statusSelection').textContent = 'Drawnix Clone - Ready to use!';
+        });
+    </script>
+</body>
+</html>

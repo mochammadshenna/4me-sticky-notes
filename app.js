@@ -23,7 +23,11 @@ const state = {
     // Drawnix-style tools
     activeTool: 'select', // 'select', 'hand', 'node', 'circle', 'connector', 'text'
     // RAF flag for drag updates
-    rafScheduled: false
+    rafScheduled: false,
+    // Connector tool state
+    connectorStart: null,
+    tempConnectorLine: null,
+    drawnConnectors: []
 };
 
 // ==================== DOM ELEMENTS ====================
@@ -47,6 +51,10 @@ const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomLevelDisplay = document.getElementById('zoomLevel');
 const fitToScreenBtn = document.getElementById('fitToScreenBtn');
+const exportMindMapBtn = document.getElementById('exportMindMapBtn');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const themeLightIcon = document.getElementById('themeLightIcon');
+const themeDarkIcon = document.getElementById('themeDarkIcon');
 const toggleDrawBtn = document.getElementById('toggleDrawBtn');
 const clearDrawBtn = document.getElementById('clearDrawBtn');
 const clearAllBtn = document.getElementById('clearAllBtn');
@@ -61,6 +69,7 @@ const modalOverlay = document.getElementById('modalOverlay');
 function init() {
     setupCanvas();
     setupConnectionSvg();
+    loadTheme();
     loadFromStorage();
     setupEventListeners();
 
@@ -74,8 +83,39 @@ function init() {
         initializeMindMap();
     }
 
+    // Initialize Drawnix-style Mind Map tools
+    if (typeof initMindMapTools === 'function') {
+        initMindMapTools();
+    }
+
     // Set initial mode
     switchMode('sticky');
+}
+
+// ==================== THEME SYSTEM ====================
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+}
+
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+
+    // Update icon visibility
+    if (theme === 'dark') {
+        themeLightIcon.style.display = 'none';
+        themeDarkIcon.style.display = 'block';
+    } else {
+        themeLightIcon.style.display = 'block';
+        themeDarkIcon.style.display = 'none';
+    }
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
 }
 
 function setupCanvas() {
@@ -116,25 +156,33 @@ function createInitialContent() {
 function switchMode(mode) {
     state.currentMode = mode;
 
+    const toolbar = document.querySelector('.toolbar');
+    const board = document.getElementById('board');
+
     if (mode === 'sticky') {
-        // Show sticky board, hide mind map board
+        // Show sticky mode UI
+        if (toolbar) toolbar.style.display = 'flex';
+        if (board) board.style.display = 'block';
         stickyBoard.classList.remove('hidden');
         mindmapBoard.classList.add('hidden');
-        stickyTools.classList.remove('hidden');
-        mindmapTools.classList.add('hidden');
-        stickyModeBtn.classList.add('active');
-        mindmapModeBtn.classList.remove('active');
+        if (stickyTools) stickyTools.classList.remove('hidden');
+        if (mindmapTools) mindmapTools.classList.add('hidden');
+        if (stickyModeBtn) stickyModeBtn.classList.add('active');
+        if (mindmapModeBtn) mindmapModeBtn.classList.remove('active');
     } else if (mode === 'mindmap') {
-        // Show mind map board, hide sticky board
+        // COMPLETELY HIDE sticky mode UI - fullscreen takeover
+        if (toolbar) toolbar.style.display = 'none';
+        // DON'T hide board - Mind Map is inside it but uses position:fixed to overlay
+        if (board) board.style.display = 'block';
         stickyBoard.classList.add('hidden');
         mindmapBoard.classList.remove('hidden');
-        stickyTools.classList.add('hidden');
-        mindmapTools.classList.remove('hidden');
-        stickyModeBtn.classList.remove('active');
-        mindmapModeBtn.classList.add('active');
+        if (stickyTools) stickyTools.classList.add('hidden');
+        if (mindmapTools) mindmapTools.classList.add('hidden');
 
-        // Render mind map
-        renderMindMap();
+        // Drawnix Mind Map starts with blank canvas - no need to render tree
+        // Old renderMindMap() was for tree-based Mind Map (deprecated)
+        // New Drawnix style: users create shapes using tools on blank canvas
+        console.log('✅ Switched to Drawnix Mind Map mode - use tools to create shapes');
     }
 
     // Disable drawing mode when switching
@@ -219,17 +267,34 @@ function setupNoteEventListeners(noteElement) {
     const formatBtns = noteElement.querySelectorAll('.note-format-btn');
     const fontSizeSelect = noteElement.querySelector('.note-font-size');
 
-    // Drag
-    noteElement.addEventListener('mousedown', (e) => {
-        if (!state.drawingMode &&
-            !e.target.closest('.note-content') &&
-            !e.target.closest('.note-btn') &&
-            !e.target.closest('.note-format-btn') &&
-            !e.target.closest('.note-font-size') &&
-            e.target !== noteElement.querySelector('.note-header')) {
-            startDrag(e, noteElement, 'note');
+    // Drag - Mouse and Touch support
+    const handleDragStart = (e) => {
+        if (state.drawingMode) return;
+
+        // Priority 1: Drag handle (always allows drag)
+        const isDragHandle = e.target.closest('.note-drag-handle');
+
+        // Priority 2: Avoid interactive elements
+        const isInteractiveElement = e.target.closest('.note-content') ||
+                                     e.target.closest('.note-btn') ||
+                                     e.target.closest('.note-format-btn') ||
+                                     e.target.closest('.note-font-size') ||
+                                     e.target.closest('.note-header');
+
+        if (isDragHandle || !isInteractiveElement) {
+            // Convert touch to mouse-like event
+            const event = e.type === 'touchstart' ? {
+                clientX: e.touches[0].clientX,
+                clientY: e.touches[0].clientY,
+                preventDefault: () => e.preventDefault()
+            } : e;
+
+            startDrag(event, noteElement, 'note');
         }
-    });
+    };
+
+    noteElement.addEventListener('mousedown', handleDragStart);
+    noteElement.addEventListener('touchstart', handleDragStart, { passive: false });
 
     // Edit
     content.addEventListener('input', () => {
@@ -389,11 +454,11 @@ function togglePin(noteId) {
 function setActiveTool(tool) {
     state.activeTool = tool;
 
-    // Update UI - remove active class from all buttons
-    const toolButtons = document.querySelectorAll('.tool-btn');
+    // Update UI - remove active class from all buttons (both old and new Drawnix-style)
+    const toolButtons = document.querySelectorAll('.tool-btn, .tool-btn-mindmap');
     toolButtons.forEach(btn => btn.classList.remove('active'));
 
-    // Add active class to selected tool
+    // Add active class to selected tool (both old and new selectors)
     const activeBtn = document.querySelector(`[data-tool="${tool}"]`);
     if (activeBtn) {
         activeBtn.classList.add('active');
@@ -410,13 +475,25 @@ function setActiveTool(tool) {
                 break;
             case 'node':
             case 'circle':
+            case 'triangle':
+            case 'diamond':
+            case 'star':
+            case 'hexagon':
                 mindmapCanvasWrapper.style.cursor = 'crosshair';
                 break;
+            case 'draw':
             case 'connector':
+            case 'line':
                 mindmapCanvasWrapper.style.cursor = 'crosshair';
                 break;
             case 'text':
                 mindmapCanvasWrapper.style.cursor = 'text';
+                break;
+            case 'eraser':
+                mindmapCanvasWrapper.style.cursor = 'not-allowed';
+                break;
+            case 'image':
+                mindmapCanvasWrapper.style.cursor = 'copy';
                 break;
         }
     }
@@ -424,16 +501,22 @@ function setActiveTool(tool) {
 
 // Handle canvas click based on active tool
 function handleCanvasToolClick(e) {
+    const rect = mindmapContainer.getBoundingClientRect();
+    const x = (e.clientX - rect.left - state.mindMapPanX) / state.mindMapZoom;
+    const y = (e.clientY - rect.top - state.mindMapPanY) / state.mindMapZoom;
+
+    // Handle connector tool - can click on nodes or canvas
+    if (state.activeTool === 'connector') {
+        handleConnectorClick(e, x, y);
+        return;
+    }
+
     // Only handle if clicking on canvas, not on nodes
     const isClickOnCanvas = e.target.classList.contains('mindmap-canvas-wrapper') ||
                             e.target === mindmapContainer ||
                             e.target === connectionSvg;
 
     if (!isClickOnCanvas) return;
-
-    const rect = mindmapContainer.getBoundingClientRect();
-    const x = (e.clientX - rect.left - state.mindMapPanX) / state.mindMapZoom;
-    const y = (e.clientY - rect.top - state.mindMapPanY) / state.mindMapZoom;
 
     switch(state.activeTool) {
         case 'node':
@@ -442,18 +525,55 @@ function handleCanvasToolClick(e) {
         case 'circle':
             createShapeNode('circle', x, y);
             break;
+        case 'triangle':
+            createShapeNode('triangle', x, y);
+            break;
+        case 'diamond':
+            createShapeNode('diamond', x, y);
+            break;
+        case 'star':
+            createShapeNode('star', x, y);
+            break;
+        case 'hexagon':
+            createShapeNode('hexagon', x, y);
+            break;
         case 'text':
             createTextNode(x, y);
             break;
         case 'select':
         case 'hand':
-        case 'connector':
             // These tools don't create on click
             break;
     }
 }
 
-// Create a shape node (rectangle or circle)
+// Handle connector tool clicks
+function handleConnectorClick(e, x, y) {
+    // Check if clicking on a node
+    const clickedNode = e.target.closest('.mindmap-node, .shape-node, .text-node');
+
+    if (!state.connectorStart) {
+        // First click - set start point
+        if (clickedNode) {
+            state.connectorStart = clickedNode;
+            clickedNode.classList.add('connector-source');
+        } else {
+            // Start from canvas point
+            state.connectorStart = { x, y, isPoint: true };
+            createConnectorStartPoint(x, y);
+        }
+    } else {
+        // Second click - create connector
+        if (clickedNode) {
+            drawPermanentConnector(state.connectorStart, clickedNode);
+        } else {
+            drawPermanentConnector(state.connectorStart, { x, y, isPoint: true });
+        }
+        resetConnectorTool();
+    }
+}
+
+// Create a shape node (rectangle, circle, triangle, diamond, star, hexagon)
 function createShapeNode(shape, x, y) {
     const nodeId = 'shape-' + Date.now();
     const nodeElement = document.createElement('div');
@@ -474,13 +594,54 @@ function createShapeNode(shape, x, y) {
     nodeElement.style.cursor = 'move';
     nodeElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
 
-    if (shape === 'circle') {
-        nodeElement.style.borderRadius = '50%';
-        nodeElement.style.width = '100px';
-        nodeElement.style.height = '100px';
-    } else {
-        nodeElement.style.borderRadius = '8px';
+    // Apply shape-specific styles
+    switch(shape) {
+        case 'circle':
+            nodeElement.style.borderRadius = '50%';
+            nodeElement.style.width = '100px';
+            nodeElement.style.height = '100px';
+            break;
+        case 'triangle':
+            nodeElement.style.width = '0';
+            nodeElement.style.height = '0';
+            nodeElement.style.borderLeft = '60px solid transparent';
+            nodeElement.style.borderRight = '60px solid transparent';
+            nodeElement.style.borderBottom = '100px solid #7C3AED';
+            nodeElement.style.background = 'transparent';
+            nodeElement.style.border = 'none';
+            break;
+        case 'diamond':
+            nodeElement.style.width = '100px';
+            nodeElement.style.height = '100px';
+            nodeElement.style.transform = 'rotate(45deg)';
+            break;
+        case 'star':
+            nodeElement.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+            nodeElement.style.width = '100px';
+            nodeElement.style.height = '100px';
+            nodeElement.style.background = '#7C3AED';
+            nodeElement.style.border = 'none';
+            break;
+        case 'hexagon':
+            nodeElement.style.clipPath = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+            nodeElement.style.width = '120px';
+            nodeElement.style.height = '100px';
+            break;
+        default: // rectangle
+            nodeElement.style.borderRadius = '8px';
+            break;
     }
+
+    // Add delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'shape-delete-btn';
+    deleteBtn.innerHTML = '×';
+    deleteBtn.title = 'Delete shape';
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        nodeElement.remove();
+    };
+    nodeElement.appendChild(deleteBtn);
 
     const content = document.createElement('div');
     content.className = 'shape-content';
@@ -516,6 +677,17 @@ function createTextNode(x, y) {
     nodeElement.style.background = 'transparent';
     nodeElement.style.cursor = 'move';
 
+    // Add delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'shape-delete-btn';
+    deleteBtn.innerHTML = '×';
+    deleteBtn.title = 'Delete text';
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        nodeElement.remove();
+    };
+    nodeElement.appendChild(deleteBtn);
+
     const content = document.createElement('div');
     content.className = 'text-content';
     content.contentEditable = true;
@@ -535,6 +707,94 @@ function createTextNode(x, y) {
     document.execCommand('selectAll', false, null);
 }
 
+// Create connector start point marker
+function createConnectorStartPoint(x, y) {
+    const marker = document.createElement('div');
+    marker.className = 'connector-start-marker';
+    marker.style.left = x + 'px';
+    marker.style.top = y + 'px';
+    marker.dataset.tempMarker = 'true';
+    mindmapContainer.appendChild(marker);
+}
+
+// Draw permanent connector
+function drawPermanentConnector(from, to) {
+    const connectorId = 'connector-' + Date.now();
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('class', 'drawn-connector');
+    path.setAttribute('data-connector-id', connectorId);
+    path.setAttribute('stroke', '#7C3AED');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('marker-end', 'url(#arrowhead)');
+
+    // Calculate positions
+    const fromPos = getConnectorPosition(from);
+    const toPos = getConnectorPosition(to);
+
+    // Create path with curve
+    const d = `M ${fromPos.x} ${fromPos.y} L ${toPos.x} ${toPos.y}`;
+    path.setAttribute('d', d);
+
+    connectionSvg.appendChild(path);
+
+    // Store connector info
+    state.drawnConnectors.push({
+        id: connectorId,
+        from,
+        to,
+        path
+    });
+
+    // Add delete functionality
+    path.style.cursor = 'pointer';
+    path.addEventListener('click', (e) => {
+        if (state.activeTool === 'select') {
+            e.stopPropagation();
+            showModal(
+                'Delete Connector',
+                'Delete this arrow?',
+                () => {
+                    path.remove();
+                    state.drawnConnectors = state.drawnConnectors.filter(c => c.id !== connectorId);
+                },
+                'Delete'
+            );
+        }
+    });
+}
+
+// Get position from node or point
+function getConnectorPosition(item) {
+    if (item.isPoint) {
+        return { x: item.x, y: item.y };
+    }
+
+    const rect = item.getBoundingClientRect();
+    const containerRect = mindmapContainer.getBoundingClientRect();
+
+    return {
+        x: rect.left + rect.width / 2 - containerRect.left,
+        y: rect.top + rect.height / 2 - containerRect.top
+    };
+}
+
+// Reset connector tool
+function resetConnectorTool() {
+    if (state.connectorStart && !state.connectorStart.isPoint) {
+        state.connectorStart.classList.remove('connector-source');
+    }
+
+    // Remove temp markers
+    document.querySelectorAll('[data-temp-marker]').forEach(m => m.remove());
+
+    state.connectorStart = null;
+    if (state.tempConnectorLine) {
+        state.tempConnectorLine.remove();
+        state.tempConnectorLine = null;
+    }
+}
+
 // Make shape nodes draggable
 function makeShapeDraggable(element) {
     let isDragging = false;
@@ -542,6 +802,7 @@ function makeShapeDraggable(element) {
 
     element.addEventListener('mousedown', (e) => {
         if (e.target.contentEditable === 'true') return; // Don't drag when editing text
+        if (e.target.classList.contains('shape-delete-btn')) return; // Don't drag when clicking delete
 
         isDragging = true;
         startX = e.clientX;
@@ -563,11 +824,26 @@ function makeShapeDraggable(element) {
 
             startX = e.clientX;
             startY = e.clientY;
+
+            // Update connectors attached to this element
+            updateConnectorsForElement(element);
         }
     });
 
     document.addEventListener('mouseup', () => {
         isDragging = false;
+    });
+}
+
+// Update connectors when element moves
+function updateConnectorsForElement(element) {
+    state.drawnConnectors.forEach(connector => {
+        if (connector.from === element || connector.to === element) {
+            const fromPos = getConnectorPosition(connector.from);
+            const toPos = getConnectorPosition(connector.to);
+            const d = `M ${fromPos.x} ${fromPos.y} L ${toPos.x} ${toPos.y}`;
+            connector.path.setAttribute('d', d);
+        }
     });
 }
 
@@ -616,6 +892,14 @@ function initializeMindMap() {
 
 // Render the entire mind map from tree structure
 function renderMindMap() {
+    // DEPRECATED: Old tree-based Mind Map renderer
+    // New Drawnix implementation uses freeform canvas with tools
+    // This function would clear the canvas and break Drawnix shapes
+    console.log('⚠️ renderMindMap() called but disabled - using Drawnix freeform canvas instead');
+    return;
+
+    // OLD CODE DISABLED BELOW (kept for reference)
+    /*
     // Clean up old event listeners before clearing nodes
     cleanupNodeListeners(state.mindMapTree);
 
@@ -634,6 +918,7 @@ function renderMindMap() {
     // Draw connections
     clearConnections();
     drawMindMapConnections(state.mindMapTree);
+    */
 }
 
 // Calculate positions for all nodes in the tree
@@ -995,12 +1280,150 @@ function resetMindMap() {
             state.mindMapZoom = 1;
             state.mindMapPanX = 0;
             state.mindMapPanY = 0;
+            state.drawnConnectors = [];
             initializeMindMap();
             renderMindMap();
             applyMindMapTransform();
         },
         'Reset'
     );
+}
+
+// Export mind map to image
+async function exportMindMap() {
+    // Create modal for format selection
+    const formatModal = document.createElement('div');
+    formatModal.className = 'export-format-modal';
+    formatModal.innerHTML = `
+        <div class="export-format-content">
+            <h3>Export Mind Map</h3>
+            <p>Choose export format:</p>
+            <div class="format-buttons">
+                <button class="btn btn-primary" data-format="png">PNG</button>
+                <button class="btn btn-primary" data-format="jpg">JPG</button>
+                <button class="btn btn-primary" data-format="jpeg">JPEG</button>
+                <button class="btn btn-tool">Cancel</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(formatModal);
+
+    // Handle format selection
+    formatModal.addEventListener('click', async (e) => {
+        const format = e.target.dataset.format;
+        if (format) {
+            await exportMindMapToFormat(format);
+        }
+        formatModal.remove();
+    });
+}
+
+async function exportMindMapToFormat(format) {
+    try {
+        // Use html2canvas library if available, otherwise use simple canvas approach
+        if (typeof html2canvas !== 'undefined') {
+            const canvas = await html2canvas(mindmapBoard, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                logging: false,
+                useCORS: true
+            });
+
+            downloadCanvas(canvas, format);
+        } else {
+            // Fallback: simple screenshot using native APIs
+            await exportMindMapNative(format);
+        }
+    } catch (err) {
+        console.error('Export error:', err);
+        alert('Export failed. Please try again.');
+    }
+}
+
+async function exportMindMapNative(format) {
+    // Get the mind map container bounds
+    const container = mindmapBoard;
+    const rect = container.getBoundingClientRect();
+
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = rect.width * 2; // 2x for better quality
+    canvas.height = rect.height * 2;
+    const ctx = canvas.getContext('2d');
+
+    // Scale for better quality
+    ctx.scale(2, 2);
+
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw SVG connections
+    const svgData = new XMLSerializer().serializeToString(connectionSvg);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    const svgImg = new Image();
+
+    svgImg.onload = () => {
+        ctx.drawImage(svgImg, 0, 0);
+
+        // Draw nodes
+        const nodes = container.querySelectorAll('.mindmap-node, .shape-node, .text-node');
+        let loadedImages = 0;
+
+        nodes.forEach(node => {
+            const nodeRect = node.getBoundingClientRect();
+            const x = nodeRect.left - rect.left;
+            const y = nodeRect.top - rect.top;
+
+            // Draw node as HTML to canvas
+            const nodeData = `<svg xmlns="http://www.w3.org/2000/svg" width="${nodeRect.width}" height="${nodeRect.height}">
+                <foreignObject width="100%" height="100%">
+                    <div xmlns="http://www.w3.org/1999/xhtml">${node.outerHTML}</div>
+                </foreignObject>
+            </svg>`;
+
+            const nodeBlob = new Blob([nodeData], { type: 'image/svg+xml;charset=utf-8' });
+            const nodeUrl = URL.createObjectURL(nodeBlob);
+            const nodeImg = new Image();
+
+            nodeImg.onload = () => {
+                ctx.drawImage(nodeImg, x, y, nodeRect.width, nodeRect.height);
+                URL.revokeObjectURL(nodeUrl);
+
+                loadedImages++;
+                if (loadedImages === nodes.length) {
+                    downloadCanvas(canvas, format);
+                }
+            };
+
+            nodeImg.src = nodeUrl;
+        });
+
+        URL.revokeObjectURL(svgUrl);
+
+        // If no nodes, download immediately
+        if (nodes.length === 0) {
+            downloadCanvas(canvas, format);
+        }
+    };
+
+    svgImg.src = svgUrl;
+}
+
+function downloadCanvas(canvas, format) {
+    const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+    const extension = format;
+
+    canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `mindmap-${Date.now()}.${extension}`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+    }, mimeType, 0.95);
 }
 
 // ==================== MIND MAP ZOOM & PAN ====================
@@ -1014,7 +1437,19 @@ function applyMindMapTransform() {
 
 function updateZoomDisplay() {
     const zoomPercent = Math.round(state.mindMapZoom * 100);
-    zoomLevelDisplay.textContent = `${zoomPercent}%`;
+    if (zoomLevelDisplay) {
+        zoomLevelDisplay.textContent = `${zoomPercent}%`;
+    }
+
+    // Update Drawnix-style zoom displays
+    const zoomValueMindmap = document.getElementById('zoomValueMindmap');
+    const statusZoomMindmap = document.getElementById('statusZoomMindmap');
+    if (zoomValueMindmap) {
+        zoomValueMindmap.textContent = `${zoomPercent}%`;
+    }
+    if (statusZoomMindmap) {
+        statusZoomMindmap.textContent = `${zoomPercent}%`;
+    }
 }
 
 function zoomIn() {
@@ -1094,7 +1529,7 @@ function startDrag(e, element, type) {
 
     if (itemData && itemData.pinned) return;
 
-    // Get current position from left/top or computed transform
+    // Get current position from left/top
     const currentLeft = parseInt(element.style.left) || 0;
     const currentTop = parseInt(element.style.top) || 0;
 
@@ -1104,68 +1539,107 @@ function startDrag(e, element, type) {
         startX: e.clientX,
         startY: e.clientY,
         elementX: currentLeft,
-        elementY: currentTop
+        elementY: currentTop,
+        currentX: currentLeft,
+        currentY: currentTop
     };
 
+    // Disable transitions during drag for smooth movement
+    element.style.transition = 'none';
     element.classList.add('dragging');
+
+    // Add listeners
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('touchmove', drag, { passive: false });
+    document.addEventListener('touchend', stopDrag);
 }
 
 function drag(e) {
     if (!state.draggedItem) return;
 
+    // Prevent default for touch
+    if (e.type === 'touchmove') {
+        e.preventDefault();
+    }
+
+    // Get correct coordinates for mouse or touch
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+    // Use RAF for smooth 60fps dragging
+    if (!state.rafScheduled) {
+        state.rafScheduled = true;
+        requestAnimationFrame(() => {
+            updateDragPosition(clientX, clientY);
+            state.rafScheduled = false;
+        });
+    }
+}
+
+function updateDragPosition(clientX, clientY) {
+    if (!state.draggedItem) return;
+
     const element = state.draggedItem.element;
 
     // Calculate delta from start position
-    const dx = e.clientX - state.draggedItem.startX;
-    const dy = e.clientY - state.draggedItem.startY;
+    const dx = clientX - state.draggedItem.startX;
+    const dy = clientY - state.draggedItem.startY;
 
     // Calculate new position
     let x = state.draggedItem.elementX + dx;
     let y = state.draggedItem.elementY + dy;
 
-    // Constrain to viewport (optional, remove if you want infinite dragging)
-    const maxX = window.innerWidth - element.offsetWidth;
-    const maxY = window.innerHeight - element.offsetHeight - 70;
-    x = Math.max(0, Math.min(x, maxX));
-    y = Math.max(0, Math.min(y, maxY));
+    // Soft boundaries - allow 50% off-screen
+    const halfWidth = element.offsetWidth / 2;
+    const halfHeight = element.offsetHeight / 2;
+    const maxX = window.innerWidth - halfWidth;
+    const maxY = window.innerHeight - halfHeight - 70;
+    const minX = -halfWidth;
+    const minY = -halfHeight;
 
-    // Use translate3d for GPU acceleration and smooth dragging
-    element.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-    element.style.left = '0px';
-    element.style.top = '0px';
+    x = Math.max(minX, Math.min(x, maxX));
+    y = Math.max(minY, Math.min(y, maxY));
 
-    // Store final position for saving
-    state.draggedItem.finalX = x;
-    state.draggedItem.finalY = y;
+    // Store position
+    state.draggedItem.currentX = x;
+    state.draggedItem.currentY = y;
+
+    // Update position using left/top directly
+    element.style.left = x + 'px';
+    element.style.top = y + 'px';
 }
 
 function stopDrag() {
     if (!state.draggedItem) return;
 
     const element = state.draggedItem.element;
+    const finalX = state.draggedItem.currentX;
+    const finalY = state.draggedItem.currentY;
+
+    // Remove dragging state
     element.classList.remove('dragging');
 
-    // Convert transform back to left/top for consistency with storage
-    const finalX = state.draggedItem.finalX || state.draggedItem.elementX;
-    const finalY = state.draggedItem.finalY || state.draggedItem.elementY;
+    // Re-enable transitions with slight delay
+    setTimeout(() => {
+        element.style.transition = '';
+    }, 50);
 
-    element.style.transform = 'none';
-    element.style.left = finalX + 'px';
-    element.style.top = finalY + 'px';
-
+    // Update data
     const itemData = state.notes.find(n => n.id == element.dataset.id);
-
     if (itemData) {
         itemData.x = finalX;
         itemData.y = finalY;
         saveToStorage();
     }
 
+    // Cleanup
     state.draggedItem = null;
+    state.rafScheduled = false;
     document.removeEventListener('mousemove', drag);
     document.removeEventListener('mouseup', stopDrag);
+    document.removeEventListener('touchmove', drag);
+    document.removeEventListener('touchend', stopDrag);
 }
 
 function bringToFront(element) {
@@ -1441,6 +1915,16 @@ function setupEventListeners() {
         fitToScreen();
     });
 
+    // Export mind map
+    exportMindMapBtn.addEventListener('click', () => {
+        exportMindMap();
+    });
+
+    // Theme toggle
+    themeToggleBtn.addEventListener('click', () => {
+        toggleTheme();
+    });
+
     // Mind map pan (drag canvas) - use canvas wrapper
     if (mindmapCanvasWrapper) {
         mindmapCanvasWrapper.addEventListener('mousedown', startPan);
@@ -1452,14 +1936,56 @@ function setupEventListeners() {
         mindmapCanvasWrapper.addEventListener('wheel', handleMindMapWheel, { passive: false });
     }
 
-    // Drawnix-style tool buttons
-    const toolButtons = document.querySelectorAll('.tool-btn');
+    // Drawnix-style tool buttons (both old and new selectors)
+    const toolButtons = document.querySelectorAll('.tool-btn, .tool-btn-mindmap');
     toolButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const tool = btn.dataset.tool;
             setActiveTool(tool);
         });
     });
+
+    // Drawnix Mind Map specific buttons
+    const backToModesBtn = document.getElementById('backToModesBtn');
+    if (backToModesBtn) {
+        backToModesBtn.addEventListener('click', () => {
+            switchMode('sticky');
+        });
+    }
+
+    const zoomInMindmap = document.getElementById('zoomInMindmap');
+    if (zoomInMindmap) {
+        zoomInMindmap.addEventListener('click', () => {
+            zoomIn();
+        });
+    }
+
+    const zoomOutMindmap = document.getElementById('zoomOutMindmap');
+    if (zoomOutMindmap) {
+        zoomOutMindmap.addEventListener('click', () => {
+            zoomOut();
+        });
+    }
+
+    const exportMindmapBtn = document.getElementById('exportMindmapBtn');
+    if (exportMindmapBtn) {
+        exportMindmapBtn.addEventListener('click', () => {
+            exportMindMap();
+        });
+    }
+
+    // Mouse position tracking for status bar
+    if (mindmapCanvasWrapper) {
+        mindmapCanvasWrapper.addEventListener('mousemove', (e) => {
+            const statusXMindmap = document.getElementById('statusXMindmap');
+            const statusYMindmap = document.getElementById('statusYMindmap');
+            if (statusXMindmap && statusYMindmap) {
+                const rect = mindmapCanvasWrapper.getBoundingClientRect();
+                statusXMindmap.textContent = Math.round(e.clientX - rect.left);
+                statusYMindmap.textContent = Math.round(e.clientY - rect.top);
+            }
+        });
+    }
 
     // Canvas click for placing shapes/nodes with active tool
     if (mindmapCanvasWrapper) {
